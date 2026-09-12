@@ -20,7 +20,8 @@ app = Flask(__name__)
 
 # Backend gốc
 _E_API_URL = "aHR0cHM6Ly9oaWhpdG9rZW4udmVyY2VsLmFwcA=="
-BASE_API_URL = base64.b64decode(_E_API_URL.encode('utf-8')).decode('utf-8')
+# Thay thế dòng cũ bằng dòng này
+BASE_API_URL = "https://nghuymxt.onrender.com"
 
 def _call_upstream_api(endpoint, params=None):
     """Gọi API trung gian lên server gốc."""
