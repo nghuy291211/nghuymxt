@@ -10,7 +10,7 @@ from flask import Flask, jsonify, request
 # Bổ sung thư mục hiện tại vào sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import các hàm xử lý từ app_2.py
+# Import các hàm từ app_2.py
 try:
     from app_2 import get_bind_info_text, get_login_history
 except ImportError:
@@ -18,12 +18,12 @@ except ImportError:
 
 app = Flask(__name__)
 
-# Giải mã API Server backend từ file tun_2.py
+# Backend gốc
 _E_API_URL = "aHR0cHM6Ly9oaWhpdG9rZW4udmVyY2VsLmFwcA=="
 BASE_API_URL = base64.b64decode(_E_API_URL.encode('utf-8')).decode('utf-8')
 
 def _call_upstream_api(endpoint, params=None):
-    """Hàm trung gian gọi API tới backend gốc."""
+    """Gọi API trung gian lên server gốc."""
     url = f"{BASE_API_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     if params:
         query_string = urllib.parse.urlencode(params)
@@ -46,7 +46,7 @@ def _call_upstream_api(endpoint, params=None):
     except Exception as e:
         return {"error": str(e)}, 500
 
-# ================= TRANG CHỦ & DANH SÁCH ENDPOINTS =================
+# ================= ROUTE TRANG CHỦ =================
 
 @app.route('/', methods=['GET'])
 def home():
@@ -67,7 +67,7 @@ def home():
         }
     }), 200
 
-# ================= API TỪ APP_2.PY =================
+# ================= API TỪ APP_2 =================
 
 @app.route('/get_bind', methods=['GET'])
 def api_get_bind():
@@ -91,7 +91,7 @@ def api_get_history():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ================= API TỪ TUN_2.PY =================
+# ================= API TỪ TOOL (ĐÃ SỬA LỖI ENCODE URL) =================
 
 # 1. Convert Eat Token
 @app.route('/api/eattoken', methods=['GET'])
