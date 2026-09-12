@@ -31,20 +31,22 @@ def eattoken():
         return jsonify({"error": "Thiếu tham số 'token'"}), 400
         
     try:
-        # === ĐOẠN CODE XỬ LÝ CONVERT EAT TOKEN CỦA BẠN ===
-        # Ví dụ kết quả xử lý thành công:
-        result = {
+        # 1. ĐỐI VỚI BẠN: Dán đoạn code giải mã / gọi API Garena lấy access_token vào đây
+        # Ví dụ: converted_access_token = my_convert_function(token)
+        
+        converted_access_token = "KẾT_QUẢ_ACCESS_TOKEN_SAU_KHI_CONVERT_Ở_ĐÂY"
+        
+        # 2. Trả về JSON chứa Access Token mới
+        return jsonify({
             "status": "success",
-            "message": "Convert Token thành công",
-            "token_input": token[:15] + "..."
-        }
-        return jsonify(result), 200
+            "message": "Convert Token thành công!",
+            "access_token": converted_access_token
+        }), 200
         
     except Exception as e:
         print(f"[ERROR /api/eattoken]: {str(e)}", flush=True)
-        traceback.print_exc()
         return jsonify({
-            "error": "Lỗi xử lý Convert Token",
+            "error": "Lỗi chuyển đổi Token",
             "details": str(e)
         }), 500
 
