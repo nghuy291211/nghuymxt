@@ -1,17 +1,61 @@
 import os
 import sys
-import traceback
-from flask import Flask, request, jsonify
+import base64
+import json
+import urllib.request
+import urllib.parse
+import urllib.error
+from flask import Flask, jsonify, request
+
+# Bổ sung thư mục hiện tại vào sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Import các hàm từ app_2.py
+try:
+    from app_2 import get_bind_info_text, get_login_history
+except ImportError:
+    pass
 
 app = Flask(__name__)
 
-# Trang chủ kiểm tra trạng thái
+# Backend gốc
+_E_API_URL = "aHR0cHM6Ly9oaWhpdG9rZW4udmVyY2VsLmFwcA=="
+BASE_API_URL = base64.b64decode(_E_API_URL.encode('utf-8')).decode('utf-8')
+
+def _call_upstream_api(endpoint, params=None):
+    """Gọi API trung gian lên server gốc."""
+    url = f"{BASE_API_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+    if params:
+        query_string = urllib.parse.urlencode(params)
+        url = f"{url}?{query_string}"
+    
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    )
+    
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = response.read().decode('utf-8')
+            return json.loads(data), response.status
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode('utf-8')), e.code
+        except Exception:
+            return {"error": f"HTTP {e.code}"}, e.code
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+# ================= ROUTE TRANG CHỦ =================
+
 @app.route('/', methods=['GET'])
-def index():
+def home():
     return jsonify({
         "status": "running",
         "message": "Garena API Service Ready",
         "endpoints": {
+            "/get_bind": "GET - params: access_token",
+            "/get_history": "GET - params: jwt_token",
             "/api/eattoken": "GET - params: token",
             "/api/band7": "GET - params: token",
             "/api/spamlog": "GET - params: token",
@@ -23,151 +67,107 @@ def index():
         }
     }), 200
 
-# 1. API Convert Eat Token
+# ================= API TỪ APP_2 =================
+
+@app.route('/get_bind', methods=['GET'])
+def api_get_bind():
+    token = request.args.get('access_token')
+    if not token:
+        return jsonify({"error": "Missing access_token"}), 400
+    try:
+        res = get_bind_info_text(token)
+        return jsonify({"result": res})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/get_history', methods=['GET'])
+def api_get_history():
+    token = request.args.get('jwt_token')
+    if not token:
+        return jsonify({"error": "Missing jwt_token"}), 400
+    try:
+        res = get_login_history(token)
+        return jsonify({"result": res})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ================= API TỪ TOOL (ĐÃ SỬA LỖI ENCODE URL) =================
+
+# 1. Convert Eat Token
 @app.route('/api/eattoken', methods=['GET'])
-def eattoken():
+def api_eattoken():
     token = request.args.get('token')
     if not token:
-        return jsonify({"error": "Thiếu tham số 'token'"}), 400
-        
-    try:
-        # 1. ĐỐI VỚI BẠN: Dán đoạn code giải mã / gọi API Garena lấy access_token vào đây
-        # Ví dụ: converted_access_token = my_convert_function(token)
-        
-        converted_access_token = "KẾT_QUẢ_ACCESS_TOKEN_SAU_KHI_CONVERT_Ở_ĐÂY"
-        
-        # 2. Trả về JSON chứa Access Token mới
-        return jsonify({
-            "status": "success",
-            "message": "Convert Token thành công!",
-            "access_token": converted_access_token
-        }), 200
-        
-    except Exception as e:
-        print(f"[ERROR /api/eattoken]: {str(e)}", flush=True)
-        return jsonify({
-            "error": "Lỗi chuyển đổi Token",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": "Missing parameter 'token'"}), 400
+    res, code = _call_upstream_api("api/eattoken", {"token": token})
+    return jsonify(res), code
 
-# 2. API Ban 7 Ngày
+# 2. Ban 7 Ngay
 @app.route('/api/band7', methods=['GET'])
-def band7():
+def api_band7():
     token = request.args.get('token')
     if not token:
-        return jsonify({"error": "Thiếu tham số 'token'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ BAND 7 NGÀY CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Đã thực hiện Ban 7 Ngày"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/band7]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi xử lý Band 7", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token'"}), 400
+    res, code = _call_upstream_api("api/band7", {"token": token})
+    return jsonify(res), code
 
-# 3. API Spam Log
+# 3. Spam Log
 @app.route('/api/spamlog', methods=['GET'])
-def spamlog():
+def api_spamlog():
     token = request.args.get('token')
     if not token:
-        return jsonify({"error": "Thiếu tham số 'token'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ SPAM LOG CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Đã gửi Spam Log"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/spamlog]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Spam Log", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token'"}), 400
+    res, code = _call_upstream_api("api/spamlog", {"token": token})
+    return jsonify(res), code
 
-# 4. API Check Mail
+# 4. Check Mail
 @app.route('/api/checkmail', methods=['GET'])
-def checkmail():
+def api_checkmail():
     token = request.args.get('token')
     if not token:
-        return jsonify({"error": "Thiếu tham số 'token'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ CHECK MAIL CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Kiểm tra Mail hoàn tất"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/checkmail]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Check Mail", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token'"}), 400
+    res, code = _call_upstream_api("api/checkmail", {"token": token})
+    return jsonify(res), code
 
-# 5. API Check Platforms
+# 5. Check Platforms
 @app.route('/api/checkplatforms', methods=['GET'])
-def checkplatforms():
+def api_checkplatforms():
     token = request.args.get('token')
     if not token:
-        return jsonify({"error": "Thiếu tham số 'token'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ CHECK PLATFORMS CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Kiểm tra Nền tảng hoàn tất"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/checkplatforms]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Check Platforms", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token'"}), 400
+    res, code = _call_upstream_api("api/checkplatforms", {"token": token})
+    return jsonify(res), code
 
-# 6. API Verify PIN
+# 6. Verify PIN
 @app.route('/api/verifypin', methods=['GET'])
-def verifypin():
+def api_verifypin():
     token = request.args.get('token')
     pin = request.args.get('pin')
     if not token or not pin:
-        return jsonify({"error": "Thiếu tham số 'token' hoặc 'pin'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ VERIFY PIN CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Xác minh PIN thành công"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/verifypin]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Verify PIN", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token' or 'pin'"}), 400
+    res, code = _call_upstream_api("api/verifypin", {"token": token, "pin": pin})
+    return jsonify(res), code
 
-# 7. API Update Bio
+# 7. Update Bio
 @app.route('/api/updatebio', methods=['GET'])
-def updatebio():
+def api_updatebio():
     token = request.args.get('token')
     bio = request.args.get('bio')
     if not token or not bio:
-        return jsonify({"error": "Thiếu tham số 'token' hoặc 'bio'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ UPDATE BIO CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Cập nhật tiểu sử thành công"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/updatebio]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Update Bio", "details": str(e)}), 500
+        return jsonify({"error": "Missing parameter 'token' or 'bio'"}), 400
+    res, code = _call_upstream_api("api/updatebio", {"token": token, "bio": bio})
+    return jsonify(res), code
 
-# 8. API Guest to JWT
+# 8. Guest -> JWT
 @app.route('/api/guest2jwt', methods=['GET'])
-def guest2jwt():
+def api_guest2jwt():
     uid = request.args.get('uid')
     password = request.args.get('password')
     if not uid or not password:
-        return jsonify({"error": "Thiếu tham số 'uid' hoặc 'password'"}), 400
-        
-    try:
-        # === ĐOẠN CODE XỬ LÝ GUEST TO JWT CỦA BẠN ===
-        return jsonify({"status": "success", "message": "Chuyển đổi Guest sang JWT thành công"}), 200
-    except Exception as e:
-        print(f"[ERROR /api/guest2jwt]: {str(e)}", flush=True)
-        traceback.print_exc()
-        return jsonify({"error": "Lỗi Guest2JWT", "details": str(e)}), 500
-
-# Xử lý tất cả các route không tồn tại (404)
-@app.errorhandler(404)
-def page_not_found(e):
-    return jsonify({"error": "Endpoint không tồn tại (HTTP 404)"}), 404
-
-# Xử lý lỗi hệ thống chung (500)
-@app.errorhandler(500)
-def internal_server_error(e):
-    return jsonify({"error": "Lỗi hệ thống Server Backend (HTTP 500)"}), 500
+        return jsonify({"error": "Missing parameter 'uid' or 'password'"}), 400
+    res, code = _call_upstream_api("api/guest2jwt", {"uid": uid, "password": password})
+    return jsonify(res), code
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
