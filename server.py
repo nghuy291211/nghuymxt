@@ -21,7 +21,7 @@ app = Flask(__name__)
 # Backend gốc
 _E_API_URL = "aHR0cHM6Ly9oaWhpdG9rZW4udmVyY2VsLmFwcA=="
 # Thay thế dòng cũ bằng dòng này
-BASE_API_URL = "https://nghuymxt.onrender.com"
+BASE_API_URL = "https://thanhtoan244.github.io/tcoin/"
 
 def _call_upstream_api(endpoint, params=None):
     """Gọi API trung gian lên server gốc."""
